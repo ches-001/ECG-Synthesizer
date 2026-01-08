@@ -1,0 +1,105 @@
+generator:
+  padding_kwargs:
+    p: 0.5
+    vpad_range: [30, 200]
+    hpad_range: [30, 200]
+
+  forshorten_distortion_kwargs:
+    p: 0.5
+    alpha_range: [-0.05235987755982988, 0.05235987755982988]
+    beta_range:  [-0.05235987755982988, 0.05235987755982988]
+    gamma_range: [-0.05235987755982988, 0.05235987755982988]
+    fx_range: [2000, 2100]
+    fy_range: [2000, 2100]
+    pos_x_range: [-30, 30]
+    pos_y_range: [-30, 30]
+    pos_z_range: [1900, 2100]
+    cx_range: [-20, 20]
+    cy_range: [-20, 20]
+
+  sinusoidal_distortion_kwargs:
+    p: 0.5
+    x_amp_range: [2, 25]
+    y_amp_range: [2, 25]
+    x_lambda_range: [2000, 3500]
+    y_lambda_range: [2000, 3500]
+
+  polynomial_distortion_kwargs:
+    p: 0.5
+    kx_range: [1.0e-8, 5.0e-8]
+    ky_range: [1.0e-8, 5.0e-8]
+
+  smooth_random_distortion_kwargs:
+    p: 0.5
+    x_amp_range: [10, 30]
+    y_amp_range: [10, 30]
+    sigma_range: [80, 200]
+
+  background_kwargs: 
+    p: 0.6
+    h_range: [10, 1000]
+    w_range: [10, 1000]
+
+  crop_kwargs:
+    p: 0.0
+    crop_top: [0, 0.1]
+    crop_bottom: [0, 0.05]
+    crop_left: [0, 0.05]
+    crop_right: [0, 0.05]
+
+  contrast_kwargs:
+    p: 0.5
+    contrast_range: [0.9, 1.1]
+    brightness_range: [-0.2, 0.2]
+
+  color_gradient_kwargs:
+    p: 0.5
+    alpha_range: [0.05, 0.3]
+
+  stains_kwargs:
+    p: 0.5
+    num_circles_range: [10, 700]
+    region_x_range: [0.0, 0.9]
+    region_y_range: [0.0, 0.9]
+    region_w_range: [0.05, 0.5]
+    region_h_range: [0.05, 0.5]
+    kernel_size_range: [20, 202]
+    sigmas_range: [10, 60]
+    num_grains_range: [2000, 70000]
+    alpha_range: [0.0, 0.5]
+
+  crease_kwargs:
+    p: 0.5
+    num_lines_range: [1, 15]
+    theta_range: [1.5184364492350666, 1.6231562043547265]
+    kernel_size_range: [3, 9]
+    sigmas_range: [0.5, 3.0]
+    line_thickness_range: [5, 7]
+
+  wrinkle_kwargs:
+    p: 0.75
+    block_size_range: [128, 257]
+    num_xpatches_range: [1, 4]
+    num_ypatches_range: [1, 4]
+    mean_shift_range: [0.1, 0.5]
+    map_threshold_range: [0.4, 0.7]
+
+  noise_kwargs:
+    p: 0.6
+    mean_range: [0, 0.11]
+    std_range: [0.001, 0.21]
+    poisson_rate_range: [1, 30]
+    n_snp_range: [4000, 50000]
+    perlin_grid_size: [32, 513]
+    perlin_alpha: [0.1, 0.5]
+
+  invert_channels_kwargs:
+    p: 0.3
+
+  grayscale_kwargs:
+    p: 0.4
+
+  blur_kwargs:
+    p: 0.5
+    kernel_size_range: [3, 11]
+    sigmas_range: [0.1, 5.0]
