@@ -67,7 +67,7 @@ python -m synthesizer.parallel \
         --compress_rle
 ```
 
-Generate in parallel with single CPU core:
+Generate with single CPU core:
 
 ```sh
 python -m synthesizer \
