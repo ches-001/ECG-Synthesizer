@@ -4,6 +4,8 @@ This codebase was created for the sole purpose of generating synthetic ECG print
 
 With this you can generate ECG images as well as segmentation masks for grid lines, signals, texts and markers. All you need are a bunch of CSV files containing the ECG digitized readings.
 
+For more detailed Information, check this out: [ECG-Synthesizer Details](https://www.kaggle.com/code/henrychibueze/synthesize-ecg-samples)
+
 ## HOW TO USE:
 
 There are several augmentation techniques implemented in this codebase to replicate realistic distortions and artifacts and you can combine all these augmentations to generate random samples automatically with a single function. Each augmentation has a probability value associated with it and the value indicates the chances of the augmentation being applied to the image to produce the final image.
