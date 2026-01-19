@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 import numpy as np
 from .utils import(
-    clean_after_interp,
+    global_change_scale,
     draw_signal,
     draw_grid,
     generate_random_color_contrasts,
@@ -39,6 +39,7 @@ def generate_ecg_sample(
         rle_masks: bool=True,
         default_p: float=0.5,
         return_rectified: bool=False,
+        scale: int=1,
         device: str="cpu"
     ) -> Tuple[np.ndarray, Union[Dict[str, Any], List[Dict[str, Any]], np.ndarray]]:
     """
@@ -62,11 +63,13 @@ def generate_ecg_sample(
 
     channel 8: Short verical lines dividing lead signals
     """
+    scale = global_change_scale(scale)
+
     if not os.path.isfile(ecg_df_path):
         LOGGER.error(f"ERROR: {ecg_df_path} file is not found")
         return
     
-    QR_BASEWIDTH = np.random.randint(150, 301)
+    QR_BASEWIDTH = np.random.randint(150*scale, 301*scale)
 
     thick_lines_color = np.asarray([255, 70, 70])
     thick_lines_color[1:] = (thick_lines_color[1:] / np.random.randint(1, 4)).astype(np.uint8)
@@ -74,16 +77,16 @@ def generate_ecg_sample(
     thick_lines_color = (*thick_lines_color.tolist(), )
     thin_lines_color = (*thin_lines_color.tolist(), )
     
-    line_thickness = np.random.randint(1, 3)
-    point_radius = 3 + line_thickness
+    line_thickness = np.random.randint(1*scale, 3*scale)
+    point_radius = line_thickness
 
     img = draw_grid(
         thickness=line_thickness,
-        seg_thickness=line_thickness+1,
+        seg_thickness=line_thickness,
+        point_radius=point_radius,
         thick_color=thick_lines_color,
         thin_color=thin_lines_color,
-        with_annotations=True, 
-        point_radius=point_radius,
+        with_annotations=True,
         bg_color=(255, 255, int(np.random.randint(225, 256))),
         qr_code=True,
         qr_code_data="random text for QR code",
@@ -94,12 +97,13 @@ def generate_ecg_sample(
     
     signal_df = pd.read_csv(ecg_df_path)
 
-    sig_thickness = np.random.randint(1, 3)
+    sig_thickness = np.random.randint(1*scale, 3*scale)
     # given how sensitive signal segments are, it makes sense to make it this thin
     sig_mask_thickness = 1
-    font_scale = np.random.uniform(1.0, 1.2)
-    text_thickness = np.random.randint(2, 4)
-    tick_thickness = sig_thickness + 4
+    font_scale = np.random.uniform(1.0*scale, 1.2*scale)
+    text_thickness = np.random.randint(2*scale, 4*scale)
+    tick_thickness = sig_thickness + (4 * scale)
+    num_points_scale = 20 * scale
 
     img = draw_signal(
         img,
@@ -110,13 +114,14 @@ def generate_ecg_sample(
             add_brightness=True, 
             brightness_range=signal_color_brange
         ),
-        font_scale=font_scale, 
         sig_thickness=sig_thickness,
         sig_mask_thickness=sig_mask_thickness,
-        text_thickness=text_thickness,
         tick_thickness=tick_thickness,
+        text_thickness=text_thickness,
+        font_scale=font_scale,
         ignore_mask_sq_pulser=True,
-        with_annotations=True
+        with_annotations=True,
+        num_points_scale=num_points_scale,
     )
     signal_segments = img[:, :, 3:]
     img = img[:, :, :3]
@@ -157,8 +162,6 @@ def generate_ecg_sample(
 
         segments = img[:, :, 3:]
         img = img[:, :, :3]
-
-    segments = clean_after_interp(segments, threshold=70, max_val=255)
 
     img = contrast_augmentation(img, contrast_kwargs, default_p)
     img = color_gradient_augmentation(img, color_gradient_kwargs, default_p)

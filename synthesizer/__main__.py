@@ -16,7 +16,7 @@ from typing import List, Dict, Any
 LOGGER = logging.getLogger(__name__)
 SAMPLE_STRAT = ["circle", "random"]
 DEVICES = ["cpu", "cuda"]
-DEFAULT_CONFIG_PATH = "config/synthesizer_config.yaml"
+DEFAULT_CONFIG_PATH = "config/synthesizer_s1_config.yaml"
 
 
 def validate_and_get_files(args: argparse.Namespace) -> List[str]:
@@ -55,6 +55,7 @@ def generate_single(args: argparse.Namespace, config: Dict[str, Any], ecg_path: 
             device=args.device,
             return_rectified=args.rectify,
             rle_masks=True,
+            scale=config["scale"],
             **config["generator"]
         )
     except Exception as e:

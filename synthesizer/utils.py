@@ -13,10 +13,11 @@ from scipy.signal import fftconvolve
 from pycocotools import mask as mask_utils
 from typing import Tuple, Optional, List, Union, Dict, Any, Literal
 
+SCALE               = 1
 THICK_GRID_SPACE_MM = 5
 THIN_GRID_SPACE_MM  = 1
-THICK_GRID_SPACE_PX = 40
-THIN_GRID_SPACE_PX  = 8
+THICK_GRID_SPACE_PX = 40 * SCALE
+THIN_GRID_SPACE_PX  = 8 * SCALE
 NUM_THICK_VLINES    = 56
 NUM_THICK_HLINES    = 43
 GRID_H              = THICK_GRID_SPACE_PX * NUM_THICK_HLINES
@@ -24,6 +25,29 @@ GRID_W              = THICK_GRID_SPACE_PX * NUM_THICK_VLINES
 MM_PER_SEC          = 25
 MM_PER_MV           = 10
 SIGNAL_DURATION     = 10
+R1_COLS             = ("I", "aVR", "V1", "V4")
+R2_COLS             = ("II", "aVL", "V2", "V5")
+R3_COLS             = ("III", "aVF", "V3", "V6")
+R4_COLS             = ("II", )
+
+
+def global_change_scale(scale: int) -> int:
+    global SCALE
+    
+    if scale == SCALE:
+        return scale
+    
+    global THICK_GRID_SPACE_PX
+    global THIN_GRID_SPACE_PX
+    global GRID_H
+    global GRID_W
+
+    SCALE               = scale
+    THICK_GRID_SPACE_PX = 40 * SCALE
+    THIN_GRID_SPACE_PX  = 8 * SCALE
+    GRID_H              = THICK_GRID_SPACE_PX * NUM_THICK_HLINES
+    GRID_W              = THICK_GRID_SPACE_PX * NUM_THICK_VLINES
+    return SCALE
 
 
 def apply_grid_padding(
@@ -331,13 +355,13 @@ def grid_sample(
     return img
 
 
-def clean_after_interp(
+def defuzzify(
         mask: np.ndarray, 
-        threshold: Union[int, float]=100, 
+        threshold: Union[int, float]=70, 
         max_val: Union[int, float]=255,
     ) -> np.ndarray:
     """
-    for binary masks, remove unnecessary values between 0s and max_vals accordingly
+    remove unnecessary values between 0s and max_vals to change from fuzzy to binary
     """
     mask[m := mask < threshold] = 0
     mask[~m] = max_val
@@ -625,7 +649,7 @@ def draw_signal(
         ignore_mask_sq_pulser: bool=False,
         font_face: int=cv2.FONT_HERSHEY_SIMPLEX,
         with_annotations: bool=False,
-        num_points_scale: float=1,
+        num_points_scale: int=10,
     ) -> np.ndarray:
     
     assert num_points_scale > 0
@@ -636,11 +660,6 @@ def draw_signal(
     amp2mm = lambda mv: mv * MM_PER_MV
     sec2mm = lambda sec: sec * MM_PER_SEC
     mm2px = lambda mm: mm * THIN_GRID_SPACE_PX
-
-    r1_cols = ["I", "aVR", "V1", "V4"]
-    r2_cols = ["II", "aVL", "V2", "V5"]
-    r3_cols = ["III", "aVF", "V3", "V6"]
-    r4_cols = ["II"]
 
     sig_y_px_offset = int(mm2px(sig_y_mm_offset))
     sig_x_px_offset = int(mm2px(sig_x_mm_offset))
@@ -656,7 +675,7 @@ def draw_signal(
         # the third channel corresponds to the short vertical lead markers
         annotations = np.zeros((6, h, w), dtype=img.dtype)
 
-    for i, r_cols in enumerate([r1_cols, r2_cols, r3_cols, r4_cols]):
+    for i, r_cols in enumerate([R1_COLS, R2_COLS, R3_COLS, R4_COLS]):
         plot_rows = get_waveform_plot_rows(signal_df, r_cols)
         xs, ys = plot_rows.index.values, plot_rows.values
 
@@ -1202,7 +1221,7 @@ def apply_contrast(
     # if statement to save compute
     assert contrast >= 0 and -1 <= brightness <= 1
     if contrast == 1 and brightness == 0: return img
-    img = img / 255
+    img = (img / 255).astype(np.float32)
     img = contrast * img + brightness
     return np.clip(img * 255, a_min=0, a_max=255).astype(np.uint8)
 
@@ -1488,37 +1507,54 @@ def rl_decode(enc: np.ndarray, arr_size: int, arr_value: int=255, dtype="uint8")
 def coco_rl_encode(arr: np.ndarray) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
     if not arr.flags["F_CONTIGUOUS"]:
         arr = arr.astype(arr.dtype, order="F")
-    return mask_utils.encode(arr)
+    
+    non_zeros = arr[non_zeros_mask := arr > 0].copy()
+    rle = mask_utils.encode(non_zeros_mask)
+    encoded = dict(non_zeros=non_zeros, rle=rle)
+    return encoded
 
 
 def coco_rl_decode(
-        enc: Union[Dict[str, Any], List[Dict[str, Any]]], 
-        arr_value: int=255, 
-        dtype="uint8"
+        enc: Dict[str, Union[Dict[str, Any], List[Dict[str, Any]]]], 
+        normalize: bool=False, 
+        dtype="uint8",
+        norm_dtype="float32"
     ) -> np.ndarray:
 
-    dec_arr = mask_utils.decode(enc)
+    assert "rle" in enc and "non_zeros" in enc
+    rle = enc["rle"]
+    non_zeros = enc["non_zeros"]
+
+    dec_arr = mask_utils.decode(rle)
     if not dec_arr.flags["C_CONTIGUOUS"]:
         dec_arr = dec_arr.astype(getattr(np, dtype), order="C")
-    return dec_arr * arr_value
+    dec_arr[dec_arr > 0] = non_zeros
+
+    if normalize:
+        dec_arr = (dec_arr / 255).astype(getattr(np, norm_dtype))
+    return dec_arr
 
 
 def save_coco_rl_encode(
         path: str, 
-        enc: Union[Dict[str, Any], List[Dict[str, Any]]],
+        enc: Dict[str, Union[Dict[str, Any], List[Dict[str, Any]]]],
         compressed: bool=False
     ):
-    assert isinstance(enc, (list, dict))
-    if isinstance(enc, list):
-        counts = [e["counts"] for e in enc]
-        sizes = [e["size"] for e in enc]
+    assert isinstance(enc, dict)
+    rle = enc["rle"]
+    non_zeros = enc["non_zeros"]
+
+    assert isinstance(rle, (list, dict))
+    if isinstance(rle, list):
+        counts = [e["counts"] for e in rle]
+        sizes = [e["size"] for e in rle]
     else:
-        counts = enc["counts"]
-        sizes = enc["size"]
+        counts = rle["counts"]
+        sizes = rle["size"]
     if compressed:
-        np.savez_compressed(path, counts=counts, sizes=sizes)
+        np.savez_compressed(path, non_zeros=non_zeros, counts=counts, sizes=sizes)
     else:
-        np.savez(path, counts=counts, sizes=sizes)
+        np.savez(path, non_zeros=non_zeros, counts=counts, sizes=sizes)
 
 
 def load_coco_rl_encode(
@@ -1528,14 +1564,17 @@ def load_coco_rl_encode(
     ) -> Union[Dict[str, Any], List[Dict[str, Any]], np.ndarray]:
 
     with np.load(path) as f:
-        assert "counts" in f and "sizes" in f
+        assert "non_zeros" in f and "counts" in f and "sizes" in f
+        non_zeros = f["non_zeros"]
         sizes = f["sizes"]
         counts = f["counts"]
 
     if sizes.ndim == 2:
-        enc = [{"size": sizes[i], "counts": bytes(counts[i])} for i in range(len(sizes))]
+        rle = [{"size": sizes[i], "counts": bytes(counts[i])} for i in range(len(sizes))]
     else:
-        enc = {"size": sizes, "counts": counts}
+        rle = {"size": sizes, "counts": counts}
+
+    enc = dict(non_zeros=non_zeros, rle=rle)
 
     if decode:
         return coco_rl_decode(enc, **kwargs)

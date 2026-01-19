@@ -29,28 +29,29 @@ BG_COLOR_RANGE = ((0, 100, 0), (100, 255, 100))
 def stain_augmentation(img: np.ndarray, kwargs: Dict[str, Any], default_p: float=0.5) -> np.ndarray:
     kwargs = kwargs or {
         "p": default_p,
-        "num_circles_range": (20, 70),
-        "region_x_range": (0.1, 0.4),
-        "region_y_range": (0.1, 0.4),
-        "region_w_range": (0.5, 0.7),
-        "region_h_range": (0.5, 0.7),
-        "kernel_size_range": (20, 101),
-        "sigmas_range": (10, 30),
-        "num_grains_range": (2_000, 30_000),
-        "alpha_range": (0.01, 0.3)
+        "num_circles_range": (10, 700),
+        "region_x_range": (0, 2016),
+        "region_y_range": (0, 1548),
+        "region_w_range": (112, 1120),
+        "region_h_range": (86, 860),
+        "kernel_size_range": (20, 202),
+        "sigmas_range": (10, 60),
+        "num_grains_range": (2000, 70000),
+        "alpha_range": (0.0, 0.5),
     }
+    H, W = img.shape[:2]
     if kwargs["p"] > np.random.uniform():
         img = apply_stains(
             img,
             num_circles=np.random.randint(*kwargs["num_circles_range"]),
             region=(
                 (
-                    x:=np.random.uniform(*kwargs["region_x_range"]),
-                    y:=np.random.uniform(*kwargs["region_y_range"]),
+                    x:=np.random.randint(*kwargs["region_x_range"]) / W,
+                    y:=np.random.randint(*kwargs["region_y_range"]) / H,
                 ),
                 (
-                    np.clip(x + np.random.uniform(*kwargs["region_w_range"]), a_min=0, a_max=1),
-                    np.clip(y + np.random.uniform(*kwargs["region_h_range"]), a_min=0, a_max=1)
+                    np.clip(x + np.random.randint(*kwargs["region_w_range"]) / W, a_min=0, a_max=1),
+                    np.clip(y + np.random.randint(*kwargs["region_h_range"]) / H, a_min=0, a_max=1)
                 )
             ),
             color=random.choice([(0, 0, 0), generate_random_color(c_range=(0, 5))]),
@@ -258,20 +259,20 @@ def crop_augmentation(
 
     kwargs = kwargs or {
         "p": default_p,
-        "crop_top": (0, 0.1),
-        "crop_bottom": (0, 0.05),
-        "crop_left": (0, 0.05),
-        "crop_right": (0, 0.05)
+        "crop_top": (0, 172),
+        "crop_bottom": (0, 86),
+        "crop_left": (0, 112),
+        "crop_right": (0, 112)
     }
     H, W = img.shape[:2]
     if kwargs["p"] > np.random.uniform():
         vrange = (
-            int(np.random.uniform(*kwargs["crop_top"])*H), 
-            H-int(np.random.uniform(*kwargs["crop_bottom"])*H)
+            np.random.randint(*kwargs["crop_top"]), 
+            H-np.random.randint(*kwargs["crop_bottom"])
         )
         hrange = (
-            int(np.random.uniform(*kwargs["crop_left"])*W), 
-            W-int(np.random.uniform(*kwargs["crop_right"])*W)
+            np.random.randint(*kwargs["crop_left"]), 
+            W-np.random.randint(*kwargs["crop_right"])
         )
         img = crop_grid(img, vrange=vrange, hrange=hrange)
         if ignore_mask is not None:
